@@ -44,14 +44,7 @@ class FilmCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Stack(
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: film.gambarPoster,
-                    height: isLarge ? 220 : 185,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => _buildShimmer(isLarge ? 220 : 185),
-                    errorWidget: (context, url, error) => _buildErrorWidget(isLarge ? 220 : 185),
-                  ),
+                  _buildPosterImage(isLarge ? 220 : 185),
                   // Gradient overlay
                   Positioned(
                     bottom: 0,
@@ -176,6 +169,26 @@ class FilmCard extends StatelessWidget {
       child: const Center(
         child: Icon(Icons.movie_outlined, color: AppColors.textMuted, size: 40),
       ),
+    );
+  }
+
+  Widget _buildPosterImage(double height) {
+    // Jika URL kosong atau tidak valid, tampilkan fallback
+    if (film.gambarPoster.isEmpty || !film.isValidPosterUrl) {
+      return _buildErrorWidget(height);
+    }
+
+    return CachedNetworkImage(
+      imageUrl: film.gambarPoster,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => _buildShimmer(height),
+      errorWidget: (context, url, error) {
+        // Print error untuk debugging
+        print('❌ Error loading image for ${film.judul}: $error');
+        return _buildErrorWidget(height);
+      },
     );
   }
 }

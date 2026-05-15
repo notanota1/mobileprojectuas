@@ -24,20 +24,8 @@ class FeaturedBanner extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Sampul gambar background
-            film.isValidSampulUrl
-                ? CachedNetworkImage(
-                    imageUrl: film.gambarSampul,
-                    fit: BoxFit.cover,
-                    errorWidget: (c, u, e) => _fallbackBg(),
-                  )
-                : film.isValidPosterUrl
-                    ? CachedNetworkImage(
-                        imageUrl: film.gambarPoster,
-                        fit: BoxFit.cover,
-                        errorWidget: (c, u, e) => _fallbackBg(),
-                      )
-                    : _fallbackBg(),
+            // Sampul gambar background dengan fallback yang lebih baik
+            _buildBackgroundImage(),
 
             // Multi-layer gradient
             Container(
@@ -167,6 +155,38 @@ class FeaturedBanner extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildBackgroundImage() {
+    if (film.isValidSampulUrl) {
+      return CachedNetworkImage(
+        imageUrl: film.gambarSampul,
+        fit: BoxFit.cover,
+        errorWidget: (c, u, e) {
+          print('Error loading sampul for ${film.judul}: $e');
+          // Fallback ke poster jika sampul error
+          if (film.isValidPosterUrl) {
+            return CachedNetworkImage(
+              imageUrl: film.gambarPoster,
+              fit: BoxFit.cover,
+              errorWidget: (c, u, e) => _fallbackBg(),
+            );
+          }
+          return _fallbackBg();
+        },
+      );
+    } else if (film.isValidPosterUrl) {
+      return CachedNetworkImage(
+        imageUrl: film.gambarPoster,
+        fit: BoxFit.cover,
+        errorWidget: (c, u, e) {
+          print('Error loading poster for ${film.judul}: $e');
+          return _fallbackBg();
+        },
+      );
+    } else {
+      return _fallbackBg();
+    }
   }
 
   Widget _fallbackBg() {

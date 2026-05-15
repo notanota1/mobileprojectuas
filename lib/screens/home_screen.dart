@@ -100,9 +100,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ? _buildLoadingState()
           : _error != null
               ? _buildErrorState()
-              : _buildMainContent(),
+              : _buildContentByTab(),
       bottomNavigationBar: _buildBottomNav(),
     );
+  }
+
+  Widget _buildContentByTab() {
+    switch (_selectedNavIndex) {
+      case 0:
+        return _buildMainContent();
+      case 1:
+        return _buildAllFilmsTab();
+      case 2:
+        return _buildFavoritesTab();
+      case 3:
+        return _buildProfileTab();
+      default:
+        return _buildMainContent();
+    }
   }
 
   Widget _buildMainContent() {
@@ -497,6 +512,231 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // TAB 1: SEMUA FILM
+  Widget _buildAllFilmsTab() {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        _buildAppBar(),
+        if (_showSearch) _buildSearchBar(),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Text(
+              'SEMUA FILM (${_filteredFilms.length})',
+              style: GoogleFonts.cinzel(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => GestureDetector(
+                onTap: () => _goToDetail(_filteredFilms[i]),
+                child: FilmCard(
+                  film: _filteredFilms[i],
+                  onTap: () => _goToDetail(_filteredFilms[i]),
+                ),
+              ),
+              childCount: _filteredFilms.length,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.56,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 16,
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+      ],
+    );
+  }
+
+  // TAB 2: FAVORIT
+  Widget _buildFavoritesTab() {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        _buildAppBar(),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 60),
+                  Icon(
+                    Icons.favorite_outline_rounded,
+                    size: 80,
+                    color: AppColors.cinemaRed.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'FAVORIT KOSONG',
+                    style: GoogleFonts.cinzel(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Tambahkan film favorit dengan mengklik icon hati',
+                    style: GoogleFonts.raleway(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 80),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // TAB 3: PROFIL
+  Widget _buildProfileTab() {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        _buildAppBar(),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                // Profile Avatar
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [AppColors.gold, AppColors.goldDark],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.gold.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.person_rounded,
+                    size: 60,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Pengguna CineMax',
+                  style: GoogleFonts.cinzel(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'user@cinemax.app',
+                  style: GoogleFonts.raleway(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                // Menu Items
+                ...[
+                  {'icon': Icons.history_rounded, 'label': 'Riwayat Tonton'},
+                  {'icon': Icons.download_rounded, 'label': 'Download'},
+                  {'icon': Icons.settings_rounded, 'label': 'Pengaturan'},
+                  {'icon': Icons.info_outline_rounded, 'label': 'Tentang Aplikasi'},
+                ].map((item) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider, width: 1),
+                    ),
+                    child: ListTile(
+                      leading: Icon(
+                        item['icon'] as IconData,
+                        color: AppColors.gold,
+                      ),
+                      title: Text(
+                        item['label'] as String,
+                        style: GoogleFonts.raleway(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      trailing: const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: AppColors.textMuted,
+                      ),
+                      onTap: () {},
+                    ),
+                  );
+                }).toList(),
+                const SizedBox(height: 40),
+                // Logout Button
+                Container(
+                  width: double.infinity,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: AppColors.cinemaRed.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.cinemaRed,
+                      width: 1,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {},
+                      child: Center(
+                        child: Text(
+                          'LOGOUT',
+                          style: GoogleFonts.cinzel(
+                            color: AppColors.cinemaRed,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

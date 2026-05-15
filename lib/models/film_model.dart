@@ -24,16 +24,16 @@ class Film {
   factory Film.fromJson(Map<String, dynamic> json) {
     return Film(
       id: json['id']?.toString() ?? '',
-      judul: json['judul'] ?? '',
-      ringkasan: json['ringkasan'] ?? '',
-      gambarPoster: json['gambar_poster'] ?? '',
-      gambarSampul: json['gambar_sampul'] ?? '',
+      judul: json['judul'] ?? json['title'] ?? 'Untitled',
+      ringkasan: json['ringkasan'] ?? json['summary'] ?? json['description'] ?? 'Tidak ada deskripsi',
+      gambarPoster: json['gambar_poster'] ?? json['poster'] ?? json['image'] ?? '',
+      gambarSampul: json['gambar_sampul'] ?? json['banner'] ?? json['backdrop'] ?? '',
       tanggalRilis: json['tanggal_rilis'] is int
           ? json['tanggal_rilis']
           : int.tryParse(json['tanggal_rilis'].toString()) ?? 0,
-      skorRating: json['skor_rating'],
-      kategori: json['kategori'] ?? '',
-      urlTrailer: json['url_trailer'] ?? '',
+      skorRating: json['skor_rating'] ?? json['rating'] ?? 0,
+      kategori: json['kategori'] ?? json['genre'] ?? 'Unknown',
+      urlTrailer: json['url_trailer'] ?? json['trailer'] ?? '',
     );
   }
 
@@ -46,7 +46,11 @@ class Film {
 
   int get ratingPersen {
     if (skorRating == null) return 0;
-    return (double.tryParse(skorRating.toString()) ?? 0).toInt().clamp(0, 100);
+    int val = (double.tryParse(skorRating.toString()) ?? 0).toInt();
+    // Jika nilai > 10, anggap sudah dalam persen
+    if (val > 10) return val.clamp(0, 100);
+    // Jika nilai <= 10, kalikan 10 untuk konversi ke persen
+    return (val * 10).clamp(0, 100);
   }
 
   String get tahunRilis {
@@ -56,10 +60,15 @@ class Film {
   }
 
   bool get isValidPosterUrl {
-    return gambarPoster.startsWith('http');
+    return gambarPoster.isNotEmpty && gambarPoster.startsWith('http');
   }
 
   bool get isValidSampulUrl {
-    return gambarSampul.startsWith('http');
+    return gambarSampul.isNotEmpty && gambarSampul.startsWith('http');
+  }
+
+  // Getter untuk mengecek apakah film memiliki data minimal yang valid
+  bool get isValid {
+    return judul.isNotEmpty;
   }
 }
