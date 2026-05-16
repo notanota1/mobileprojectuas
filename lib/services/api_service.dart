@@ -6,16 +6,6 @@ class ApiService {
   static const String baseUrl =
       'https://68ff8dfbe02b16d1753e765d.mockapi.io/film';
 
-  static bool _isValidHttpUrl(String url) {
-    try {
-      if (url.isEmpty) return false;
-      final uri = Uri.parse(url);
-      return uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https');
-    } catch (e) {
-      return false;
-    }
-  }
-
   static Future<List<Film>> fetchFilms() async {
     try {
       final response = await http
@@ -27,10 +17,6 @@ class ApiService {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
 
-        if (data.isEmpty) {
-          throw Exception('API mengembalikan data kosong');
-        }
-
         final films = data.map((json) {
           try {
             return Film.fromJson(json);
@@ -40,11 +26,6 @@ class ApiService {
         }).toList();
 
         final validFilms = films.where((f) => f.isValid).toList();
-
-        if (validFilms.isEmpty) {
-          throw Exception('Tidak ada film dengan data valid ditemukan');
-        }
-
         return validFilms;
       } else {
         throw Exception('Gagal memuat data film: ${response.statusCode}');
@@ -65,6 +46,62 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error: $e');
+    }
+  }
+
+  static Future<Film> createFilm(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse(baseUrl),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode(body))
+          .timeout(const Duration(seconds: 15), onTimeout: () {
+        throw Exception('API request timeout setelah 15 detik');
+      });
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Film.fromJson(data);
+      }
+      throw Exception('Gagal membuat film: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Error koneksi: $e');
+    }
+  }
+
+  static Future<Film> updateFilm(String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/$id'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode(body))
+          .timeout(const Duration(seconds: 15), onTimeout: () {
+        throw Exception('API request timeout setelah 15 detik');
+      });
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return Film.fromJson(data);
+      }
+      throw Exception('Gagal memperbarui film: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Error koneksi: $e');
+    }
+  }
+
+  static Future<void> deleteFilm(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/$id'))
+          .timeout(const Duration(seconds: 15), onTimeout: () {
+        throw Exception('API request timeout setelah 15 detik');
+      });
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Gagal menghapus film: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error koneksi: $e');
     }
   }
 }

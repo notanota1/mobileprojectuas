@@ -217,7 +217,7 @@ class _AuthScreenState extends State<AuthScreen>
                 const SizedBox(height: 32),
                 // Tab content
                 SizedBox(
-                  height: 440,
+                  height: 520,
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -236,129 +236,135 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Widget _buildLoginForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Selamat Datang Kembali',
-          style: GoogleFonts.cinzel(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Selamat Datang Kembali',
+            style: GoogleFonts.cinzel(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Masuk untuk melanjutkan',
-          style: GoogleFonts.raleway(color: AppColors.textMuted, fontSize: 13),
-        ),
-        const SizedBox(height: 28),
-        _buildTextField(
-          controller: _loginEmailController,
-          label: 'Email',
-          hint: 'email@contoh.com',
-          icon: Icons.email_outlined,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _loginPasswordController,
-          label: 'Password',
-          hint: '••••••••',
-          icon: Icons.lock_outline_rounded,
-          isPassword: true,
-          passwordVisible: _loginPasswordVisible,
-          onTogglePassword: () =>
-              setState(() => _loginPasswordVisible = !_loginPasswordVisible),
-        ),
-        const SizedBox(height: 32),
-        _buildActionButton(label: 'MASUK', onTap: _login),
-        const SizedBox(height: 16),
-        Center(
-          child: GestureDetector(
-            onTap: () => _tabController.animateTo(1),
-            child: RichText(
-              text: TextSpan(
-                text: 'Belum punya akun? ',
-                style: GoogleFonts.raleway(
-                  color: AppColors.textMuted,
-                  fontSize: 13,
-                ),
-                children: [
-                  TextSpan(
-                    text: 'Daftar sekarang',
-                    style: GoogleFonts.raleway(
-                      color: AppColors.gold,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
+          const SizedBox(height: 4),
+          Text(
+            'Masuk untuk melanjutkan',
+            style: GoogleFonts.raleway(color: AppColors.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 28),
+          _buildTextField(
+            controller: _loginEmailController,
+            label: 'Email',
+            hint: 'email@contoh.com',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _loginPasswordController,
+            label: 'Password',
+            hint: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+            passwordVisible: _loginPasswordVisible,
+            onTogglePassword: () =>
+                setState(() => _loginPasswordVisible = !_loginPasswordVisible),
+          ),
+          const SizedBox(height: 32),
+          _buildActionButton(label: 'MASUK', onTap: _login),
+          const SizedBox(height: 16),
+          Center(
+            child: GestureDetector(
+              onTap: () => _tabController.animateTo(1),
+              child: RichText(
+                text: TextSpan(
+                  text: 'Belum punya akun? ',
+                  style: GoogleFonts.raleway(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
                   ),
-                ],
+                  children: [
+                    TextSpan(
+                      text: 'Daftar sekarang',
+                      style: GoogleFonts.raleway(
+                        color: AppColors.gold,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildRegisterForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Buat Akun Baru',
-          style: GoogleFonts.cinzel(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Buat Akun Baru',
+            style: GoogleFonts.cinzel(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Daftarkan dirimu untuk mulai menonton',
-          style: GoogleFonts.raleway(color: AppColors.textMuted, fontSize: 13),
-        ),
-        const SizedBox(height: 20),
-        _buildTextField(
-          controller: _registerNameController,
-          label: 'Nama Lengkap',
-          hint: 'John Doe',
-          icon: Icons.person_outline_rounded,
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _registerEmailController,
-          label: 'Email',
-          hint: 'email@contoh.com',
-          icon: Icons.email_outlined,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _registerPasswordController,
-          label: 'Password',
-          hint: 'Min. 6 karakter',
-          icon: Icons.lock_outline_rounded,
-          isPassword: true,
-          passwordVisible: _registerPasswordVisible,
-          onTogglePassword: () =>
-              setState(() => _registerPasswordVisible = !_registerPasswordVisible),
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _registerConfirmController,
-          label: 'Konfirmasi Password',
-          hint: '••••••••',
-          icon: Icons.lock_outline_rounded,
-          isPassword: true,
-          passwordVisible: _registerConfirmVisible,
-          onTogglePassword: () =>
-              setState(() => _registerConfirmVisible = !_registerConfirmVisible),
-        ),
-        const SizedBox(height: 24),
-        _buildActionButton(label: 'DAFTAR', onTap: _register),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            'Daftarkan dirimu untuk mulai menonton',
+            style: GoogleFonts.raleway(color: AppColors.textMuted, fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+          _buildTextField(
+            controller: _registerNameController,
+            label: 'Nama Lengkap',
+            hint: 'John Doe',
+            icon: Icons.person_outline_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildTextField(
+            controller: _registerEmailController,
+            label: 'Email',
+            hint: 'email@contoh.com',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 12),
+          _buildTextField(
+            controller: _registerPasswordController,
+            label: 'Password',
+            hint: 'Min. 6 karakter',
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+            passwordVisible: _registerPasswordVisible,
+            onTogglePassword: () =>
+                setState(() => _registerPasswordVisible = !_registerPasswordVisible),
+          ),
+          const SizedBox(height: 12),
+          _buildTextField(
+            controller: _registerConfirmController,
+            label: 'Konfirmasi Password',
+            hint: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+            passwordVisible: _registerConfirmVisible,
+            onTogglePassword: () =>
+                setState(() => _registerConfirmVisible = !_registerConfirmVisible),
+          ),
+          const SizedBox(height: 24),
+          _buildActionButton(label: 'DAFTAR', onTap: _register),
+        ],
+      ),
     );
   }
 

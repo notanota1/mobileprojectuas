@@ -1,10 +1,14 @@
 // lib/screens/detail_screen.dart
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/film_model.dart';
+import '../services/favorites_service.dart';
 import '../theme/app_theme.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -35,6 +39,8 @@ class _DetailScreenState extends State<DetailScreen>
       begin: const Offset(0, 0.15),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    _loadFavoriteStatus();
+    _saveWatchHistory();
     _animController.forward();
   }
 
@@ -62,6 +68,46 @@ class _DetailScreenState extends State<DetailScreen>
         ),
       );
     }
+  }
+
+  Future<void> _loadFavoriteStatus() async {
+    final status = await FavoritesService.isFavorite(widget.film.id);
+    if (mounted) {
+      setState(() {
+        _isFavorite = status;
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    await FavoritesService.toggleFavorite(widget.film);
+    if (mounted) {
+      final status = await FavoritesService.isFavorite(widget.film.id);
+      setState(() {
+        _isFavorite = status;
+      });
+    }
+  }
+
+  Future<void> _saveWatchHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('watch_history') ?? '[]';
+    final List<dynamic> list = json.decode(raw) as List<dynamic>;
+    final history = list
+        .map((e) => e as Map<String, dynamic>)
+        .where((item) => item['id'] != widget.film.id)
+        .toList();
+
+    final entry = {
+      'id': widget.film.id,
+      'judul': widget.film.judul,
+      'gambar_poster': widget.film.gambarPoster,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+
+    history.insert(0, entry);
+    final trimmed = history.take(20).toList();
+    await prefs.setString('watch_history', json.encode(trimmed));
   }
 
   @override
@@ -486,7 +532,7 @@ class _DetailScreenState extends State<DetailScreen>
 
   Widget _buildFavoriteButton() {
     return GestureDetector(
-      onTap: () => setState(() => _isFavorite = !_isFavorite),
+      onTap: _toggleFavorite,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         width: 40,

@@ -25,7 +25,6 @@ class FilmCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: isLarge ? 160 : 130,
-        margin: const EdgeInsets.only(right: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
