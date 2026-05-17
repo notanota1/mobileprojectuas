@@ -1,3 +1,5 @@
+// lib/screens/film_form_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/film_model.dart';
@@ -111,7 +113,8 @@ class _FilmFormScreenState extends State<FilmFormScreen> {
         _showSnack('Perubahan film berhasil disimpan');
       }
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      // ← Kembalikan judul film agar manage_films bisa pakai untuk notifikasi
+      Navigator.of(context).pop(title);
     } catch (e) {
       _showSnack('Gagal menyimpan film: $e', isError: true);
     } finally {

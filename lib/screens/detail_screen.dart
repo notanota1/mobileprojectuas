@@ -9,7 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/film_model.dart';
 import '../services/favorites_service.dart';
+import '../services/watchlist_service.dart'; // ← TAMBAHAN
 import '../theme/app_theme.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 class DetailScreen extends StatefulWidget {
   final Film film;
@@ -26,6 +29,7 @@ class _DetailScreenState extends State<DetailScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   bool _isFavorite = false;
+  bool _isInWatchlist = false; // ← TAMBAHAN
 
   @override
   void initState() {
@@ -35,11 +39,12 @@ class _DetailScreenState extends State<DetailScreen>
       duration: const Duration(milliseconds: 600),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.15),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
     _loadFavoriteStatus();
+    _loadWatchlistStatus(); // ← TAMBAHAN
     _saveWatchHistory();
     _animController.forward();
   }
@@ -89,6 +94,42 @@ class _DetailScreenState extends State<DetailScreen>
     }
   }
 
+  // ── Watchlist methods ─────────────────────────────────────────────────────
+
+  Future<void> _loadWatchlistStatus() async {
+    final status = await WatchlistService.isInWatchlist(widget.film.id);
+    if (mounted) {
+      setState(() {
+        _isInWatchlist = status;
+      });
+    }
+  }
+
+  Future<void> _toggleWatchlist() async {
+    final added = await WatchlistService.toggle(widget.film);
+    if (mounted) {
+      setState(() {
+        _isInWatchlist = added;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.surfaceVariant,
+          content: Text(
+            added
+                ? '✅ Ditambahkan ke Watchlist'
+                : '🗑️ Dihapus dari Watchlist',
+            style: GoogleFonts.raleway(color: AppColors.textPrimary),
+          ),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   Future<void> _saveWatchHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('watch_history') ?? '[]';
@@ -110,6 +151,30 @@ class _DetailScreenState extends State<DetailScreen>
     await prefs.setString('watch_history', json.encode(trimmed));
   }
 
+  Future<void> _shareFilm(Film film) async {
+    final String shareText = '''
+    🎬 ${film.judul} (${film.tahunRilis})
+  📊 Rating: ${film.ratingPersen}/100
+
+${film.ringkasan}
+
+🔗 Lihat selengkapnya di aplikasi
+    '''.trim();
+
+    try {
+      await Share.share(
+        shareText,
+        subject: '${film.judul} (${film.tahunRilis})',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membagikan')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final film = widget.film;
@@ -119,15 +184,10 @@ class _DetailScreenState extends State<DetailScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Scrollable content
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Hero Header
-              SliverToBoxAdapter(
-                child: _buildHeroHeader(film, size),
-              ),
-              // Info Content
+              SliverToBoxAdapter(child: _buildHeroHeader(film, size)),
               SliverToBoxAdapter(
                 child: FadeTransition(
                   opacity: _fadeAnim,
@@ -140,19 +200,16 @@ class _DetailScreenState extends State<DetailScreen>
               const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
-          // Back Button
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 16,
             child: _buildBackButton(),
           ),
-          // Favorite Button
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             right: 16,
             child: _buildFavoriteButton(),
           ),
-          // Bottom Action Bar
           Positioned(
             bottom: 0,
             left: 0,
@@ -170,7 +227,6 @@ class _DetailScreenState extends State<DetailScreen>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background sampul
           film.isValidSampulUrl
               ? CachedNetworkImage(
                   imageUrl: film.gambarSampul,
@@ -178,12 +234,11 @@ class _DetailScreenState extends State<DetailScreen>
                   errorWidget: (c, u, e) => _posterFallback(film),
                 )
               : film.isValidPosterUrl
-                  ? CachedNetworkImage(
-                      imageUrl: film.gambarPoster,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(color: AppColors.surfaceVariant),
-          // Gradients
+              ? CachedNetworkImage(
+                  imageUrl: film.gambarPoster,
+                  fit: BoxFit.cover,
+                )
+              : Container(color: AppColors.surfaceVariant),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -199,7 +254,6 @@ class _DetailScreenState extends State<DetailScreen>
               ),
             ),
           ),
-          // Poster + title at bottom
           Positioned(
             bottom: 24,
             left: 20,
@@ -207,7 +261,6 @@ class _DetailScreenState extends State<DetailScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Poster
                 Container(
                   width: 90,
                   height: 130,
@@ -233,15 +286,16 @@ class _DetailScreenState extends State<DetailScreen>
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Title area
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Category tag
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.cinemaRed,
                           borderRadius: BorderRadius.circular(4),
@@ -307,13 +361,10 @@ class _DetailScreenState extends State<DetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Rating Row
           _buildRatingRow(film),
           const SizedBox(height: 24),
-          // Divider
           _buildGoldDivider(),
           const SizedBox(height: 24),
-          // Sinopsis
           _buildSectionTitle('SINOPSIS'),
           const SizedBox(height: 12),
           Text(
@@ -327,7 +378,6 @@ class _DetailScreenState extends State<DetailScreen>
           const SizedBox(height: 24),
           _buildGoldDivider(),
           const SizedBox(height: 24),
-          // Details grid
           _buildSectionTitle('DETAIL FILM'),
           const SizedBox(height: 16),
           _buildDetailGrid(film),
@@ -352,7 +402,6 @@ class _DetailScreenState extends State<DetailScreen>
 
     return Row(
       children: [
-        // Big Rating Circle
         Container(
           width: 72,
           height: 72,
@@ -374,10 +423,7 @@ class _DetailScreenState extends State<DetailScreen>
               ),
               Text(
                 '%',
-                style: GoogleFonts.raleway(
-                  color: ratingColor,
-                  fontSize: 11,
-                ),
+                style: GoogleFonts.raleway(color: ratingColor, fontSize: 11),
               ),
             ],
           ),
@@ -404,7 +450,6 @@ class _DetailScreenState extends State<DetailScreen>
               ),
             ),
             const SizedBox(height: 8),
-            // Stars
             Row(
               children: List.generate(5, (i) {
                 final filled = i < (film.ratingValue / 2).round();
@@ -453,9 +498,21 @@ class _DetailScreenState extends State<DetailScreen>
   Widget _buildDetailGrid(Film film) {
     final details = [
       {'label': 'ID Film', 'value': '#${film.id}', 'icon': Icons.tag},
-      {'label': 'Kategori', 'value': film.kategori, 'icon': Icons.category_outlined},
-      {'label': 'Tahun', 'value': film.tahunRilis, 'icon': Icons.calendar_today_outlined},
-      {'label': 'Rating', 'value': '${film.ratingPersen}/100', 'icon': Icons.bar_chart_rounded},
+      {
+        'label': 'Kategori',
+        'value': film.kategori,
+        'icon': Icons.category_outlined,
+      },
+      {
+        'label': 'Tahun',
+        'value': film.tahunRilis,
+        'icon': Icons.calendar_today_outlined,
+      },
+      {
+        'label': 'Rating',
+        'value': '${film.ratingPersen}/100',
+        'icon': Icons.bar_chart_rounded,
+      },
     ];
 
     return GridView.builder(
@@ -463,7 +520,7 @@ class _DetailScreenState extends State<DetailScreen>
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 2.8,
+        mainAxisExtent: 64,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -525,7 +582,11 @@ class _DetailScreenState extends State<DetailScreen>
           color: Colors.black.withOpacity(0.6),
           border: Border.all(color: AppColors.divider, width: 1),
         ),
-        child: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary, size: 20),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: AppColors.textPrimary,
+          size: 20,
+        ),
       ),
     );
   }
@@ -556,6 +617,7 @@ class _DetailScreenState extends State<DetailScreen>
     );
   }
 
+  // ── Tombol bawah: Trailer | Watchlist (Bookmark) | Share ─────────────────
   Widget _buildBottomActions(Film film) {
     return Container(
       padding: EdgeInsets.only(
@@ -577,9 +639,8 @@ class _DetailScreenState extends State<DetailScreen>
       ),
       child: Row(
         children: [
-          // Watch Trailer
+          // Tombol utama: TONTON TRAILER
           Expanded(
-            flex: 3,
             child: GestureDetector(
               onTap: _openTrailer,
               child: Container(
@@ -602,7 +663,11 @@ class _DetailScreenState extends State<DetailScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.play_circle_outline_rounded, color: Colors.black, size: 22),
+                    const Icon(
+                      Icons.play_circle_outline_rounded,
+                      color: Colors.black,
+                      size: 22,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'TONTON TRAILER',
@@ -618,17 +683,57 @@ class _DetailScreenState extends State<DetailScreen>
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          // Share Button
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.divider, width: 1),
+          const SizedBox(width: 10),
+
+          // ── Tombol WATCHLIST (Bookmark) ──────────────────────────────────
+          GestureDetector(
+            onTap: _toggleWatchlist,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: _isInWatchlist
+                    ? AppColors.gold.withOpacity(0.15)
+                    : AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isInWatchlist ? AppColors.gold : AppColors.divider,
+                  width: _isInWatchlist ? 1.5 : 1,
+                ),
+              ),
+              child: Icon(
+                _isInWatchlist
+                    ? Icons.bookmark_rounded          // sudah disimpan
+                    : Icons.bookmark_border_rounded,  // belum disimpan
+                color: _isInWatchlist
+                    ? AppColors.gold
+                    : AppColors.textSecondary,
+                size: 22,
+              ),
             ),
-            child: const Icon(Icons.share_outlined, color: AppColors.textSecondary, size: 22),
+          ),
+          // ────────────────────────────────────────────────────────────────
+
+          const SizedBox(width: 10),
+
+          // Tombol SHARE
+          GestureDetector(
+            onTap: () => _shareFilm(film),
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider, width: 1),
+              ),
+              child: const Icon(
+                Icons.share_outlined,
+                color: AppColors.textSecondary,
+                size: 22,
+              ),
+            ),
           ),
         ],
       ),

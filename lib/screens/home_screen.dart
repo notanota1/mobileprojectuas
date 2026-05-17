@@ -10,6 +10,7 @@ import '../models/film_model.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/favorites_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/film_card.dart';
 import '../widgets/featured_banner.dart';
@@ -17,6 +18,7 @@ import 'auth_screen.dart';
 import 'detail_screen.dart';
 import 'history_screen.dart';
 import 'manage_films_screen.dart';
+import 'watchlist_screen.dart'; // ← TAMBAHAN
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,9 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _showSearch = false;
   UniqueKey _favoritesTabKey = UniqueKey();
+  int _unreadNotifCount = 0;
 
-  List<Film> get _featuredFilms =>
-      _allFilms.take(5).toList();
+  List<Film> get _featuredFilms => _allFilms.take(5).toList();
 
   List<Film> get _topRatedFilms {
     final sorted = [..._allFilms];
@@ -58,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadFilms();
+    _loadUnreadCount();
   }
 
   @override
@@ -65,6 +68,233 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+  // ─── Notification helpers ────────────────────────────────────────────────────
+
+  Future<void> _loadUnreadCount() async {
+    final count = await NotificationService.getUnreadCount();
+    if (mounted) setState(() => _unreadNotifCount = count);
+  }
+
+  Future<void> _showNotifications() async {
+    await NotificationService.markAllRead();
+    if (mounted) setState(() => _unreadNotifCount = 0);
+
+    final dynamicNotifs = await NotificationService.getAll();
+
+    final staticNotifs = [
+      {
+        'icon': Icons.movie_filter_rounded,
+        'title': 'Premiere Malam Ini',
+        'subtitle': 'Jangan lewatkan tayangan perdana film terbaru.',
+        'time': 'Sekarang',
+      },
+      {
+        'icon': Icons.local_offer_rounded,
+        'title': 'Diskon Tiket VIP',
+        'subtitle': 'Harga spesial untuk 2 tiket pertama hari ini.',
+        'time': '2 jam lalu',
+      },
+      {
+        'icon': Icons.event_seat_rounded,
+        'title': 'Tempat Duduk Terbatas',
+        'subtitle': 'Kursi premium hampir habis di CineMax 1.',
+        'time': '6 jam lalu',
+      },
+      {
+        'icon': Icons.movie_creation_outlined,
+        'title': 'Trailer Baru Tersedia',
+        'subtitle': 'Lihat trailer eksklusif untuk film aksi terbaru.',
+        'time': '1 hari lalu',
+      },
+      {
+        'icon': Icons.star_rounded,
+        'title': 'Ulasan Penggemar',
+        'subtitle': 'Film favoritmu mendapatkan rating tinggi.',
+        'time': '2 hari lalu',
+      },
+    ];
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          minChildSize: 0.3,
+          builder: (context, scrollController) {
+            return Padding(
+              padding:
+                  const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textMuted,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Notifikasi CineMax',
+                    style: GoogleFonts.cinzel(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      children: [
+                        if (dynamicNotifs.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'TERBARU',
+                              style: GoogleFonts.cinzel(
+                                color: AppColors.gold,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                          ...dynamicNotifs.map((n) {
+                            final elapsed =
+                                DateTime.now().millisecondsSinceEpoch - n.timestamp;
+                            final mins = elapsed ~/ 60000;
+                            final timeStr = mins < 1
+                                ? 'Baru saja'
+                                : mins < 60
+                                    ? '$mins menit lalu'
+                                    : '${mins ~/ 60} jam lalu';
+                            return _buildNotifItem(
+                              icon: Icons.movie_filter_rounded,
+                              title: n.title,
+                              subtitle: n.subtitle,
+                              time: timeStr,
+                              highlight: true,
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'LAINNYA',
+                              style: GoogleFonts.cinzel(
+                                color: AppColors.textMuted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                        ],
+                        ...staticNotifs.map((item) => _buildNotifItem(
+                              icon: item['icon'] as IconData,
+                              title: item['title'] as String,
+                              subtitle: item['subtitle'] as String,
+                              time: item['time'] as String,
+                            )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildNotifItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String time,
+    bool highlight = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: highlight ? AppColors.gold.withOpacity(0.08) : AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: highlight ? AppColors.gold.withOpacity(0.4) : AppColors.divider,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: highlight
+                    ? [AppColors.goldLight, AppColors.goldDark]
+                    : [AppColors.surfaceVariant, AppColors.surface],
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: highlight ? Colors.black : AppColors.gold,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.cinzel(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.raleway(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            time,
+            style: GoogleFonts.raleway(color: AppColors.textMuted, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Data loading ─────────────────────────────────────────────────────────────
 
   Future<void> _loadFilms() async {
     try {
@@ -85,161 +315,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showNotifications() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        final notifications = [
-          {
-            'icon': Icons.movie_filter_rounded,
-            'title': 'Premiere Malam Ini',
-            'subtitle': 'Jangan lewatkan tayangan perdana film terbaru.',
-            'time': 'Sekarang',
-          },
-          {
-            'icon': Icons.local_offer_rounded,
-            'title': 'Diskon Tiket VIP',
-            'subtitle': 'Harga spesial untuk 2 tiket pertama hari ini.',
-            'time': '2 jam lalu',
-          },
-          {
-            'icon': Icons.event_seat_rounded,
-            'title': 'Tempat Duduk Terbatas',
-            'subtitle': 'Kursi premium hampir habis di CineMax 1.',
-            'time': '6 jam lalu',
-          },
-          {
-            'icon': Icons.movie_creation_outlined,
-            'title': 'Trailer Baru Tersedia',
-            'subtitle': 'Lihat trailer eksklusif untuk film aksi terbaru.',
-            'time': '1 hari lalu',
-          },
-          {
-            'icon': Icons.star_rounded,
-            'title': 'Ulasan Penggemar',
-            'subtitle': 'Film favoritmu mendapatkan rating tinggi.',
-            'time': '2 hari lalu',
-          },
-        ];
-
-        return Padding(
-          padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.textMuted,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Notifikasi CineMax',
-                style: GoogleFonts.cinzel(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: notifications.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final item = notifications[index];
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [AppColors.goldLight, AppColors.goldDark],
-                              ),
-                            ),
-                            child: Icon(
-                              item['icon'] as IconData,
-                              color: Colors.black,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item['title'] as String,
-                                  style: GoogleFonts.cinzel(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item['subtitle'] as String,
-                                  style: GoogleFonts.raleway(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            item['time'] as String,
-                            style: GoogleFonts.raleway(
-                              color: AppColors.textMuted,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _goToDetail(Film film) async {
     await Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => DetailScreen(film: film),
-        transitionsBuilder: (_, anim, __, child) => FadeTransition(
-          opacity: anim,
-          child: child,
-        ),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
@@ -258,6 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == true) {
       await _loadFilms();
+      await _loadUnreadCount();
     }
   }
 
@@ -268,17 +351,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showDownloadNotice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.surfaceVariant,
-        content: Text(
-          'Fitur download belum tersedia di versi mockup ini.',
-          style: GoogleFonts.raleway(color: AppColors.textPrimary),
-        ),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-      ),
+  // ── TAMBAHAN: buka halaman Watchlist ──────────────────────────────────────
+  void _openWatchlist() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WatchlistScreen()),
     );
   }
 
@@ -295,10 +372,12 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setState) {
             return AlertDialog(
               backgroundColor: AppColors.surface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: Text(
                 'Pengaturan',
-                style: GoogleFonts.cinzel(color: AppColors.textPrimary, fontSize: 18),
+                style:
+                    GoogleFonts.cinzel(color: AppColors.textPrimary, fontSize: 18),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -310,7 +389,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     subtitle: Text(
                       'Aktifkan notifikasi terbaru dari CineMax',
-                      style: GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 12),
+                      style: GoogleFonts.raleway(
+                          color: AppColors.textSecondary, fontSize: 12),
                     ),
                     activeColor: AppColors.gold,
                     value: notifEnabled,
@@ -326,7 +406,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     subtitle: Text(
                       'Putar trailer otomatis saat membuka detail film',
-                      style: GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 12),
+                      style: GoogleFonts.raleway(
+                          color: AppColors.textSecondary, fontSize: 12),
                     ),
                     activeColor: AppColors.gold,
                     value: autoplayEnabled,
@@ -340,10 +421,8 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'TUTUP',
-                    style: GoogleFonts.raleway(color: AppColors.gold),
-                  ),
+                  child: Text('TUTUP',
+                      style: GoogleFonts.raleway(color: AppColors.gold)),
                 ),
               ],
             );
@@ -372,12 +451,14 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           'CineMax adalah mockup aplikasi bioskop premium untuk menemukan dan menyimpan film favorit Anda.',
-          style: GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 13),
+          style:
+              GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 12),
         Text(
           'Nikmati rekomendasi film, sejarah tontonan, dan pengalaman elegan dalam tampilan modern ala CineMax.',
-          style: GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 13),
+          style:
+              GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 13),
         ),
       ],
     );
@@ -389,7 +470,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Konfirmasi Logout',
             style: GoogleFonts.cinzel(color: AppColors.textPrimary),
@@ -401,11 +483,13 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('BATAL', style: GoogleFonts.raleway(color: AppColors.textMuted)),
+              child: Text('BATAL',
+                  style: GoogleFonts.raleway(color: AppColors.textMuted)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text('KELUAR', style: GoogleFonts.raleway(color: AppColors.cinemaRed)),
+              child: Text('KELUAR',
+                  style: GoogleFonts.raleway(color: AppColors.cinemaRed)),
             ),
           ],
         );
@@ -422,6 +506,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
+
+  // ─── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -458,21 +544,19 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildAppBar(),
         if (_showSearch) _buildSearchBar(),
         if (!_showSearch && _searchQuery.isEmpty) ...[
-          // Featured Carousel
           SliverToBoxAdapter(child: _buildFeaturedCarousel()),
-          // Carousel indicator
           SliverToBoxAdapter(child: _buildCarouselIndicator()),
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
-          // Top Rated Section
-          SliverToBoxAdapter(child: _buildSectionHeader('TOP RATED', Icons.star_rounded)),
-          SliverToBoxAdapter(child: _buildFilmRow(_topRatedFilms, isLarge: true)),
+          SliverToBoxAdapter(
+              child: _buildSectionHeader('TOP RATED', Icons.star_rounded)),
+          SliverToBoxAdapter(
+              child: _buildFilmRow(_topRatedFilms, isLarge: true)),
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
-          // All Films Section
-          SliverToBoxAdapter(child: _buildSectionHeader('SEMUA FILM', Icons.movie_outlined)),
+          SliverToBoxAdapter(
+              child: _buildSectionHeader('SEMUA FILM', Icons.movie_outlined)),
           SliverToBoxAdapter(child: _buildFilmRow(_allFilms)),
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ] else ...[
-          // Search results
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -489,18 +573,15 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             sliver: SliverGrid(
               delegate: SliverChildBuilderDelegate(
-                (context, i) => GestureDetector(
+                (context, i) => FilmCard(
+                  film: _filteredFilms[i],
                   onTap: () => _goToDetail(_filteredFilms[i]),
-                  child: FilmCard(
-                    film: _filteredFilms[i],
-                    onTap: () => _goToDetail(_filteredFilms[i]),
-                  ),
                 ),
                 childCount: _filteredFilms.length,
               ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                childAspectRatio: 0.55,
+                mainAxisExtent: 230,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 12,
               ),
@@ -531,7 +612,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   colors: [AppColors.goldLight, AppColors.goldDark],
                 ),
               ),
-              child: const Icon(Icons.movie_filter_rounded, color: Colors.black, size: 18),
+              child: const Icon(Icons.movie_filter_rounded,
+                  color: Colors.black, size: 18),
             ),
           ],
         ),
@@ -561,9 +643,37 @@ class _HomeScreenState extends State<HomeScreen> {
             });
           },
         ),
-        IconButton(
-          icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textSecondary),
-          onPressed: _showNotifications,
+        Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_none_rounded,
+                  color: AppColors.textSecondary),
+              onPressed: _showNotifications,
+            ),
+            if (_unreadNotifCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: const BoxDecoration(
+                    color: AppColors.cinemaRed,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$_unreadNotifCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(width: 4),
       ],
@@ -698,14 +808,17 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: MediaQuery.of(context).size.height * 0.52, color: AppColors.shimmerBase),
+            Container(
+                height: MediaQuery.of(context).size.height * 0.52,
+                color: AppColors.shimmerBase),
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(width: 120, height: 18, color: AppColors.shimmerBase),
+                  Container(
+                      width: 120, height: 18, color: AppColors.shimmerBase),
                   const SizedBox(height: 16),
                   Row(
                     children: List.generate(
@@ -737,7 +850,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.wifi_off_rounded, size: 64, color: AppColors.cinemaRed.withOpacity(0.7)),
+            Icon(Icons.wifi_off_rounded,
+                size: 64, color: AppColors.cinemaRed.withOpacity(0.7)),
             const SizedBox(height: 20),
             Text(
               'GAGAL MEMUAT',
@@ -751,14 +865,16 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 10),
             Text(
               _error ?? 'Terjadi kesalahan',
-              style: GoogleFonts.raleway(color: AppColors.textSecondary, fontSize: 13),
+              style: GoogleFonts.raleway(
+                  color: AppColors.textSecondary, fontSize: 13),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
             GestureDetector(
               onTap: _loadFilms,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppColors.gold, AppColors.goldDark],
@@ -812,14 +928,15 @@ class _HomeScreenState extends State<HomeScreen> {
               final isActive = i == _selectedNavIndex;
               return GestureDetector(
                 onTap: () => setState(() {
-                      _selectedNavIndex = i;
-                      if (i == 2) {
-                        _favoritesTabKey = UniqueKey();
-                      }
-                    }),
+                  _selectedNavIndex = i;
+                  if (i == 2) {
+                    _favoritesTabKey = UniqueKey();
+                  }
+                }),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: isActive
                         ? AppColors.gold.withOpacity(0.12)
@@ -840,7 +957,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.raleway(
                           color: isActive ? AppColors.gold : AppColors.textMuted,
                           fontSize: 10,
-                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                          fontWeight: isActive
+                              ? FontWeight.w700
+                              : FontWeight.w400,
                         ),
                       ),
                     ],
@@ -879,18 +998,15 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           sliver: SliverGrid(
             delegate: SliverChildBuilderDelegate(
-              (context, i) => GestureDetector(
+              (context, i) => FilmCard(
+                film: _filteredFilms[i],
                 onTap: () => _goToDetail(_filteredFilms[i]),
-                child: FilmCard(
-                  film: _filteredFilms[i],
-                  onTap: () => _goToDetail(_filteredFilms[i]),
-                ),
               ),
               childCount: _filteredFilms.length,
             ),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              childAspectRatio: 0.55,
+              mainAxisExtent: 230,
               crossAxisSpacing: 10,
               mainAxisSpacing: 12,
             ),
@@ -913,7 +1029,9 @@ class _HomeScreenState extends State<HomeScreen> {
             future: FavoritesService.getFavorites(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(height: 220, child: Center(child: CircularProgressIndicator()));
+                return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()));
               }
               final favorites = snapshot.data ?? [];
               if (favorites.isEmpty) {
@@ -975,20 +1093,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: favorites.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
-                        childAspectRatio: 0.55,
+                        mainAxisExtent: 230,
                         crossAxisSpacing: 10,
                         mainAxisSpacing: 12,
                       ),
                       itemBuilder: (context, index) {
                         final film = favorites[index];
-                        return GestureDetector(
+                        return FilmCard(
+                          film: film,
                           onTap: () => _goToDetail(film),
-                          child: FilmCard(
-                            film: film,
-                            onTap: () => _goToDetail(film),
-                          ),
                         );
                       },
                     ),
@@ -1042,11 +1158,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        size: 60,
-                        color: Colors.black,
-                      ),
+                      child: const Icon(Icons.person_rounded,
+                          size: 60, color: Colors.black),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -1062,9 +1175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       displayEmail,
                       style: GoogleFonts.raleway(
-                        color: AppColors.textMuted,
-                        fontSize: 13,
-                      ),
+                          color: AppColors.textMuted, fontSize: 13),
                     ),
                     const SizedBox(height: 40),
                     ...[
@@ -1079,9 +1190,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         'action': _openHistory,
                       },
                       {
-                        'icon': Icons.download_rounded,
-                        'label': 'Download',
-                        'action': _showDownloadNotice,
+                        'icon': Icons.bookmark_rounded,  
+                        'label': 'Watchlist',             
+                        'action': _openWatchlist,         
                       },
                       {
                         'icon': Icons.settings_rounded,
@@ -1099,13 +1210,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.divider, width: 1),
+                          border: Border.all(
+                              color: AppColors.divider, width: 1),
                         ),
                         child: ListTile(
-                          leading: Icon(
-                            item['icon'] as IconData,
-                            color: AppColors.gold,
-                          ),
+                          leading: Icon(item['icon'] as IconData,
+                              color: AppColors.gold),
                           title: Text(
                             item['label'] as String,
                             style: GoogleFonts.raleway(
@@ -1114,15 +1224,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          trailing: const Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 18,
-                            color: AppColors.textMuted,
-                          ),
+                          trailing: const Icon(Icons.arrow_forward_rounded,
+                              size: 18, color: AppColors.textMuted),
                           onTap: item['action'] as void Function(),
                         ),
                       );
                     }).toList(),
+
                     const SizedBox(height: 40),
                     Container(
                       width: double.infinity,
@@ -1130,10 +1238,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.cinemaRed.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.cinemaRed,
-                          width: 1,
-                        ),
+                        border:
+                            Border.all(color: AppColors.cinemaRed, width: 1),
                       ),
                       child: Material(
                         color: Colors.transparent,
